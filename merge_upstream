@@ -40,7 +40,7 @@ if ! git merge upstream/"$UPSTREAM_BRANCH" --strategy-option patience -m "$MERGE
     # anything other than go.{mod,sum}, we abort, and ask for a human to
     # review
 
-    if (git diff --name-only --diff-filter=U | grep -v 'go.[mod|sum]'); then
+    if (git diff --name-only --diff-filter=U | grep -v 'go.(mod|sum)'); then
         echo "Merge conflicts cannot be resolved automatically."
         echo "Aborting..."
         exit 1;
