@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -ex
+
+if [ -z ${UPSTREAM_REPO+x} ]; then
+    echo "UPSTREAM_REPO is unset";
+    exit 1;
+fi
+
+if [ -z ${DOWNSTREAM_REPO+x} ]; then
+    echo "DOWNSTREAM_REPO is unset";
+    exit 1;
+fi
+
+if [ "$UPSTREAM_REPO" == "$DOWNSTREAM_REPO" ]; then
+    echo "UPSTREAM_REPO and DOWNSTREAM_REPO cannot be identical"
+    exit 1;
+fi
+
+UPSTREAM_BRANCH=${UPSTREAM_BRANCH:-master}
+DOWNSTREAM_BRANCH=${DOWNSTREAM_BRANCH:-master}
+
+MERGE_COMMIT_MESSAGE=${MERGE_COMMIT_MESSAGE:-"Merge upstream"}
+
+git clone "$UPSTREAM_REPO"
+
+cd "$(basename "$UPSTREAM_REPO")"
+
+git remote rename origin upstream
+git remote add downstream "$DOWNSTREAM_REPO"
+
+git fetch --all
+
+git checkout downstream/"$DOWNSTREAM_BRANCH"
+
+if ! git merge upstream/"$UPSTREAM_BRANCH" --strategy-option patience -m "$MERGE_COMMIT_MESSAGE"; then
+    # git failed to merge the upstream branch because there are conflicts.
+    #
+    # next, we list files with merge conflicts, and if this list contains
+    # anything other than go.{mod,sum}, we abort, and ask for a human to
+    # review
+
+    if (git diff --name-only --diff-filter=U | grep -v 'go.[mod|sum]'); then
+        echo "Merge conflicts cannot be resolved automatically."
+        echo "Aborting..."
+        exit 1;
+    fi
+
+    # There are merge conflicts but only to go module files.  We can resolve
+    # this automatically: we prefer the upstream versions, and then we run go
+    # mod tidy.
+
+    git checkout --theirs go.mod go.sum
+
+    go mod tidy
+    go mod vendor
+    git add go.mod go.sum vendor
+    git merge --continue
+else
+    # git managed to automatically merge the upstream branch
+    # We tidy up the go module files, and commit the changes
+    go mod tidy
+    go mod vendor
+    git add go.mod go.sum vendor
+    git commit -m "Tidy go.mod"
+fi
+
+date=$(date +'%Y%m%d-%H%M%S')
+branch="merge-upstream-$date" 
+git checkout -b "$branch"
+git push downstream "$branch"
