@@ -37,5 +37,5 @@ upstream version, and then we run `go mod tidy`, stage the changes, and continue
 with the merge.  If the conflicts are in other files, we abort, and ask a human
 to resolve the changes.
 
-If everything succeeds, we place the changes into a branch, and attemt to push
+If everything succeeds, we place the changes into a branch, and attempt to push
 it.
